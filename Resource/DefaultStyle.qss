@@ -1,0 +1,42 @@
+QGraphicsView
+{
+    background-color:black;
+    border: 1px solid rgb(200, 200, 200);
+}
+
+QLabel
+{
+    font-size: 16pt;
+}
+
+QLabel#GraphicsViewTextItem_TitleLabel
+{
+    color:#04BF0E;
+    font-size: 12pt;
+    font-weight: bold;
+}
+
+QLabel#ASL_Infer
+{
+    color:red;
+    font-size: 12pt;
+    font-weight: bold;
+}
+
+QLabel#GraphicsViewTextItem_RtLabel
+{
+    font-size: 10pt;
+    color:#F1BD08;
+}
+
+QLabel#GraphicsViewTextItem_PathLabel
+{
+    color:#04BF0E;
+    font-size: 10pt;
+    /* font-family: '微软雅黑'; */
+}
+
+GenericButton#Infer
+{
+    color:red;
+}
