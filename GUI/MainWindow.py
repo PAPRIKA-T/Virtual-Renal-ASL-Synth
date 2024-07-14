@@ -1,5 +1,5 @@
 from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QHBoxLayout, QFileDialog, QFormLayout, QLabel, QGroupBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGridLayout, QHBoxLayout, QFileDialog, QFormLayout, QLabel, QGroupBox,QMessageBox
 from GUI.GenericGraphicsView import GenericGraphicsView
 from GUI.GenericButton import GenericButton
 from PyQt6.QtCore import pyqtSlot
@@ -9,6 +9,29 @@ from Core.Macros import search_files
 from Core.Macros import search_excel_column
 from Core.Macros import read_excel_row_values
 from Core.Macros import VRAS_config
+
+class MessageBox(QMessageBox):
+    def __init__(self,mainwindow):
+        super().__init__()
+        self.mainwindow = mainwindow
+        self.setWindowTitle("Confirmation")
+        self.setText("Inferred image existed, delete all images and start a new one?")
+        self.setStandardButtons(QMessageBox.StandardButton.NoButton)  # Remove standard buttons
+        self.delete_all_button = self.addButton("Delete all", QMessageBox.ButtonRole.YesRole)
+        self.not_yet_button = self.addButton("Not yet", QMessageBox.ButtonRole.NoRole)
+
+        self.DELETE_ALL = 2
+        self.NOT_YET = 3
+
+    def show_and_wait(self):
+        self.clicked_button = self.exec()
+        if self.clicked_button == self.DELETE_ALL: # 点击delete all的时候,这个值被置为2
+            print("delete_all_button clicked")
+            self.mainwindow.on_img_del_btn_clicked()
+        elif self.clicked_button == self.NOT_YET:
+            print("Not yet button clicked")
+        else:
+            print("Unknown button clicked:", self.clicked_button)
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -30,6 +53,8 @@ class MainWindow(QWidget):
         self.predict_timer.timeout.connect(self.__on_predict_timeout)
         self.is_inferred = False
 
+        self.msg_box = MessageBox(self)
+
     def __init_main_layout(self):
         self.__main_layout = QHBoxLayout(self)
         self.__main_layout.setContentsMargins(0, 0, 0, 0)
@@ -42,19 +67,29 @@ class MainWindow(QWidget):
     def __init_graphics_view(self):
         self.__view_layout = QGridLayout()
 
-        self.__T1_GraphicsView = GenericGraphicsView(self)
-        self.__T1_GraphicsView.set_title_label_text('T1')
-        self.__T2_GraphicsView = GenericGraphicsView(self)
-        self.__T2_GraphicsView.set_title_label_text('T2')
-        self.__DWI_GraphicsView = GenericGraphicsView(self)
-        self.__DWI_GraphicsView.set_title_label_text('DWI')
-        self.__ASL_Super_GraphicsView = GenericGraphicsView(self)
-        self.__ASL_Super_GraphicsView.set_title_label_text('ASL Super')
+        self.T1_GraphicsView = GenericGraphicsView(self)
+        self.T1_GraphicsView.set_title_label_text('T1')
+        self.T2_GraphicsView = GenericGraphicsView(self)
+        self.T2_GraphicsView.set_title_label_text('T2')
+        self.DWI_GraphicsView = GenericGraphicsView(self)
+        self.DWI_GraphicsView.set_title_label_text('DWI')
+        self.ASL_Super_GraphicsView = GenericGraphicsView(self)
+        self.ASL_Super_GraphicsView.set_title_label_text('ASL Super')
 
-        self.__view_layout.addWidget(self.__T1_GraphicsView, 0, 0)
-        self.__view_layout.addWidget(self.__T2_GraphicsView, 0, 1)
-        self.__view_layout.addWidget(self.__DWI_GraphicsView, 1, 0)
-        self.__view_layout.addWidget(self.__ASL_Super_GraphicsView, 1, 1)
+        self.T1_GraphicsView.mainwindow = self
+        self.T2_GraphicsView.mainwindow = self
+        self.DWI_GraphicsView.mainwindow = self
+        self.ASL_Super_GraphicsView.mainwindow = self
+
+        self.T1_GraphicsView.view_name = 'T1'
+        self.T2_GraphicsView.view_name = 'T2'
+        self.DWI_GraphicsView.view_name = 'DWI'
+        self.ASL_Super_GraphicsView.view_name = 'ASL Super'
+
+        self.__view_layout.addWidget(self.T1_GraphicsView, 0, 0)
+        self.__view_layout.addWidget(self.T2_GraphicsView, 0, 1)
+        self.__view_layout.addWidget(self.DWI_GraphicsView, 1, 0)
+        self.__view_layout.addWidget(self.ASL_Super_GraphicsView, 1, 1)
         self.__view_layout.setSpacing(5)
         self.__view_layout.setContentsMargins(5, 5, 5, 5)
 
@@ -94,17 +129,17 @@ class MainWindow(QWidget):
         self.__img_chose_ASL_btn.clicked.connect(self.__on_img_chose_btn_clicked)
         self.__img_generate_btn.clicked.connect(self.__on_img_generate_btn_clicked)
         self.__img_save_btn.clicked.connect(self.__on_img_save_btn_clicked)
-        self.__img_del_btn.clicked.connect(self.__on_img_del_btn_clicked)
+        self.__img_del_btn.clicked.connect(self.on_img_del_btn_clicked)
 
     def __init_right_layout(self) -> None:
         self.__right_layout = QVBoxLayout()
-        self.__ASL_Infer_GraphicsView = GenericGraphicsView(self)
-        self.__ASL_Infer_GraphicsView.set_title_label_text('ASL_Infer')
-        self.__ASL_Infer_GraphicsView.set_title_label_objectname('ASL_Infer')
-        self.__ASL_Infer_GraphicsView.set_status_label_default('No Infer')
-        self.__ASL_Infer_GraphicsView.update_status_label('No Infer')
-        self.__ASL_Infer_GraphicsView.setAcceptDrops(False)
-        self.__right_layout.addWidget(self.__ASL_Infer_GraphicsView)
+        self.ASL_Infer_GraphicsView = GenericGraphicsView(self)
+        self.ASL_Infer_GraphicsView.set_title_label_text('ASL_Infer')
+        self.ASL_Infer_GraphicsView.set_title_label_objectname('ASL_Infer')
+        self.ASL_Infer_GraphicsView.set_status_label_default('No Infer')
+        self.ASL_Infer_GraphicsView.update_status_label('No Infer')
+        self.ASL_Infer_GraphicsView.setAcceptDrops(False)
+        self.__right_layout.addWidget(self.ASL_Infer_GraphicsView)
         self.__right_layout.addSpacing(5)
         self.__right_layout.addLayout(self.__right_bottom_H_layout)
         self.__right_layout.setContentsMargins(0, 5, 5, 5)
@@ -170,27 +205,49 @@ class MainWindow(QWidget):
             # print(f"selected_filepath: {selected_filepath}")
 
             if self.sender() == self.__img_chose_T1_btn:
-                self.__T1_GraphicsView.read_nii_data(selected_filepath)
+                if self.ASL_Infer_GraphicsView.isLoadNiiData():
+                    self.msg_box.show_and_wait()
+                    if self.msg_box.clicked_button == self.msg_box.NOT_YET:
+                        return
+                self.T1_GraphicsView.read_nii_data(selected_filepath)
+
             elif self.sender() == self.__img_chose_T2_btn:
-                self.__T2_GraphicsView.read_nii_data(selected_filepath)
+                if self.ASL_Infer_GraphicsView.isLoadNiiData():
+                    self.msg_box.show_and_wait()
+                    if self.msg_box.clicked_button == self.msg_box.NOT_YET:
+                        return
+                self.T2_GraphicsView.read_nii_data(selected_filepath)
+
             elif self.sender() == self.__img_chose_DWI_btn:
-                self.__DWI_GraphicsView.read_nii_data(selected_filepath)
+                if self.ASL_Infer_GraphicsView.isLoadNiiData():
+                    self.msg_box.show_and_wait()
+                    if self.msg_box.clicked_button == self.msg_box.NOT_YET:
+                        return
+                self.DWI_GraphicsView.read_nii_data(selected_filepath)
+
             elif self.sender() == self.__img_chose_ASL_btn:
-                self.__ASL_Super_GraphicsView.read_nii_data(selected_filepath)
+                self.ASL_Super_GraphicsView.read_nii_data(selected_filepath)
+                self.eva_change_when_update_ASL()
             else:
                 return
 
     def __on_img_generate_btn_clicked(self):
         if self.is_inferred:
-            print('MainWindow::__on_img_generate_btn_clicked():had inferred')
-            return
-        if self.__T1_GraphicsView.isLoadNiiData() and self.__T2_GraphicsView.isLoadNiiData() \
-                and self.__DWI_GraphicsView.isLoadNiiData() and self.__ASL_Super_GraphicsView.isLoadNiiData():
-            self.__ASL_Infer_GraphicsView.update_status_label('Inferring...')
+            # print('MainWindow::__on_img_generate_btn_clicked():had inferred')
+            # return
+
+            self.msg_box.show_and_wait()
+            if self.msg_box.clicked_button == self.msg_box.NOT_YET:
+                return
+
+        if self.T1_GraphicsView.isLoadNiiData() and self.T2_GraphicsView.isLoadNiiData() \
+                and self.DWI_GraphicsView.isLoadNiiData():
+                # and self.__ASL_Super_GraphicsView.isLoadNiiData():
+            self.ASL_Infer_GraphicsView.update_status_label('Inferring...')
             self.predict_timer.start(VRAS_config.PredInterval)
 
     def __on_predict_timeout(self):
-        file_path = self.__T1_GraphicsView.get_status_label()
+        file_path = self.T1_GraphicsView.get_status_label()
         parent_dir = os.path.basename(os.path.dirname(file_path))
 
         # update View
@@ -200,27 +257,13 @@ class MainWindow(QWidget):
         print(f"Files containing '{search_string}':")
         for file in matched_files:
             print(file)
-        self.__ASL_Infer_GraphicsView.read_nii_data(matched_files[0])
-        self.__ASL_Infer_GraphicsView.update_status_label('Inferred Success')
-
-        # update Evaluation Label
-        file_path = VRAS_config.PredExcel
-        column = 'A'
-        matched_cells = search_excel_column(file_path, column, search_string)
-        print(f"Cells in column '{column}' containing '{search_string}':")
-        eva_values = []
-        for row, value in matched_cells:
-            print(f"Row {row}: {value}")
-            eva_values.append(read_excel_row_values(file_path, row))
-            print(f"Values in row {row}:")
-            print(eva_values)
-
-        self.__update_eva_label([eva_values[0][1],eva_values[0][2],
-                                 eva_values[0][3],eva_values[0][4],
-                                 eva_values[0][7]])
+        self.ASL_Infer_GraphicsView.read_nii_data(matched_files[0])
+        self.ASL_Infer_GraphicsView.update_status_label('Inferred Success')
         self.is_inferred = True
+        if self.ASL_Super_GraphicsView.isLoadNiiData():
+            self.eva_change_when_update_ASL()
 
-    def __update_eva_label(self, eva_values, reset=False):
+    def update_eva_label(self, eva_values, reset=False):
         if reset:
             self.__nrmse_label.setText('Null')
             self.__smape_label.setText('Null')
@@ -240,15 +283,39 @@ class MainWindow(QWidget):
         # Open a save file dialog
         save_path = QFileDialog.getSaveFileName(self, "Save NII File",
                                                 VRAS_config.PredNiiSaveDir, "NIfTI Files (*.nii.gz)")
-        self.__ASL_Infer_GraphicsView.save_nii_file(save_path[0])
+        self.ASL_Infer_GraphicsView.save_nii_file(save_path[0])
 
-    def __on_img_del_btn_clicked(self):
-        if not self.is_inferred:
-            return
-        self.__update_eva_label([], reset=True)
-        self.__T1_GraphicsView.resetGraphicsView()
-        self.__T2_GraphicsView.resetGraphicsView()
-        self.__DWI_GraphicsView.resetGraphicsView()
-        self.__ASL_Infer_GraphicsView.resetGraphicsView()
-        self.__ASL_Super_GraphicsView.resetGraphicsView()
+    def on_img_del_btn_clicked(self):
+        # if not self.is_inferred:
+        #     return
+        self.update_eva_label([], reset=True)
+        self.T1_GraphicsView.resetGraphicsView()
+        self.T2_GraphicsView.resetGraphicsView()
+        self.DWI_GraphicsView.resetGraphicsView()
+        self.ASL_Infer_GraphicsView.resetGraphicsView()
+        self.ASL_Super_GraphicsView.resetGraphicsView()
         self.is_inferred = False
+
+    def eva_change_when_update_ASL(self):
+        if self.T1_GraphicsView.isLoadNiiData() and self.T2_GraphicsView.isLoadNiiData() \
+                and self.DWI_GraphicsView.isLoadNiiData() and self.ASL_Infer_GraphicsView.isLoadNiiData():
+
+            file_path = self.ASL_Super_GraphicsView.get_status_label()
+            parent_dir = os.path.basename(os.path.dirname(file_path))
+            search_string = parent_dir
+            # update Evaluation Label
+            file_path = VRAS_config.PredExcel
+            column = 'A'
+            matched_cells = search_excel_column(file_path, column, search_string)
+            print(f"Cells in column '{column}' containing '{search_string}':")
+            eva_values = []
+            for row, value in matched_cells:
+                print(f"Row {row}: {value}")
+                eva_values.append(read_excel_row_values(file_path, row))
+                print(f"Values in row {row}:")
+                print(eva_values)
+
+            self.update_eva_label([eva_values[0][1], eva_values[0][2],
+                                   eva_values[0][3], eva_values[0][4],
+                                   eva_values[0][7]])
+

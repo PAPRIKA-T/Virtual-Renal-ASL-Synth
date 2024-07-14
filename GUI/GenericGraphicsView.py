@@ -24,6 +24,9 @@ class GenericGraphicsView(QGraphicsView):
 
         self.mouse_pressed_pos = None
         self.mouse_present_pos = None
+        self.mainwindow = None
+
+        self.view_name = None
 
     def __init_graphics_scene(self):
         self.__scene = GenericGraphicsScene()
@@ -146,12 +149,23 @@ class GenericGraphicsView(QGraphicsView):
         event.accept()  # 强制接受拖放事件
 
     def dropEvent(self, event):
+        if self.mainwindow != None:
+            if self.view_name != 'ASL Super':
+                if self.mainwindow.ASL_Infer_GraphicsView.isLoadNiiData():
+                    self.mainwindow.msg_box.show_and_wait()
+                    if self.mainwindow.msg_box.clicked_button == self.mainwindow.msg_box.NOT_YET:
+                        return
+
         for url in event.mimeData().urls():
             file_path = url.toLocalFile()
             print(file_path)
             if file_path.endswith('.nii') or file_path.endswith('.nii.gz'):
                 self.read_nii_data(file_path)
                 event.acceptProposedAction()
+
+                if self.mainwindow != None:
+                    self.mainwindow.eva_change_when_update_ASL()
+
                 return
         event.ignore()
 
